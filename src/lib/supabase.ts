@@ -26,7 +26,18 @@ export const testSupabaseConnection = async () => {
 
   try {
     // Set timezone to Asia/Jakarta for this session
-    await supabase.rpc('set_config', {
+    try {
+      await supabase.rpc('set_config', {
+        setting_name: 'timezone',
+        setting_value: 'Asia/Jakarta',
+        is_local: false
+      })
+    } catch (rpcError) {
+      // Ignore error if RPC is not available, will use default timezone
+      console.log('Could not set timezone via RPC, using default')
+    }
+    
+    const { data, error } = await supabase.from('voters').select('count').limit(1)
       setting_name: 'timezone',
       setting_value: 'Asia/Jakarta',
       is_local: false
