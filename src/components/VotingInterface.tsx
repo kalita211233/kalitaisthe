@@ -166,14 +166,21 @@ export function VotingInterface({ voter, onLogout }: VotingInterfaceProps) {
       if (voteError) throw voteError
 
       // Update voter record with their choice
-      const { error: voterError } = await supabase
-        .from('voters')
-        .update({ voted_for: candidateName })
-        .eq('id', voter.id)
+      // The trigger will automatically update voted_for in voters table
+      // But we'll also update it manually to ensure consistency
+      try {
+        const { error: voterError } = await supabase
+          .from('voters')
+          .update({ voted_for: candidateName })
+          .eq('id', voter.id)
 
-      if (voterError) {
-        console.error('Error updating voter record:', voterError)
-        // Don't throw error here as the vote was already recorded
+        if (voterError) {
+          console.error('Error updating voter record:', voterError)
+          // Don't throw error here as the vote was already recorded
+        }
+      } catch (updateError) {
+        console.error('Error updating voter choice:', updateError)
+        // Continue as the trigger should handle this
       }
 
       setHasVoted(true)

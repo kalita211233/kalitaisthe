@@ -50,7 +50,11 @@ export function LoginForm({ onLogin }: LoginFormProps) {
         // Jika voter belum ada, buat voter baru
         const { data, error } = await supabase
           .from('voters')
-          .insert([{ name: name.trim(), address: address.trim() }])
+          .insert([{ 
+            name: name.trim(), 
+            address: address.trim(),
+            created_at: new Date().toISOString()
+          }])
           .select()
           .single()
 
