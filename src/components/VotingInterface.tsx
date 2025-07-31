@@ -146,11 +146,7 @@ export function VotingInterface({ voter, onLogout }: VotingInterfaceProps) {
       if (existingVote) {
         setHasVoted(true)
         setSelectedCandidate(existingVote.candidate_name)
-        // Update voter record with their choice
-        await supabase
-          .from('voters')
-          .update({ voted_for: existingVote.candidate_name })
-          .eq('id', voter.id)
+        setMyVote(existingVote.candidate_name)
         alert('Anda sudah memberikan suara sebelumnya.')
         return
       }
@@ -165,24 +161,21 @@ export function VotingInterface({ voter, onLogout }: VotingInterfaceProps) {
 
       if (voteError) throw voteError
 
-      // Update voter record with their choice
-      // Wait for trigger to execute and verify the update
-      await new Promise(resolve => setTimeout(resolve, 200))
+      // Wait for database trigger to execute
+      await new Promise(resolve => setTimeout(resolve, 500))
       
-      // Verify that the trigger worked
+      // Verify that the trigger updated voted_for
       const { data: updatedVoter, error: verifyError } = await supabase
         .from('voters')
         .select('voted_for')
         .eq('id', voter.id)
         .single()
       
-      if (verifyError) {
-        console.error('Error verifying vote update:', verifyError)
-      }
+      console.log('Voter after vote:', updatedVoter)
       
-      // If trigger didn't work, do manual update
-      if (!updatedVoter?.voted_for || updatedVoter.voted_for !== candidateName) {
-        console.log('Trigger did not update voted_for, doing manual update...')
+      // If trigger didn't work or verification failed, do manual update
+      if (verifyError || !updatedVoter?.voted_for || updatedVoter.voted_for !== candidateName) {
+        console.log('Trigger verification failed, doing manual update...')
         const { error: manualUpdateError } = await supabase
           .from('voters')
           .update({ voted_for: candidateName })
@@ -190,6 +183,7 @@ export function VotingInterface({ voter, onLogout }: VotingInterfaceProps) {
         
         if (manualUpdateError) {
           console.error('Manual update failed:', manualUpdateError)
+          throw new Error('Failed to update voter choice')
         } else {
           console.log('Manual update successful')
         }
@@ -197,30 +191,25 @@ export function VotingInterface({ voter, onLogout }: VotingInterfaceProps) {
         console.log('Trigger update successful')
       }
 
+      // Update local state
       setHasVoted(true)
       setSelectedCandidate(candidateName)
       setMyVote(candidateName)
       
-      // Refresh vote counts setelah voting berhasil
+      // Refresh vote counts
       await fetchVoteCounts()
+      
+      // Show success message
+      alert(`Terima kasih! Suara Anda untuk ${candidateName} telah berhasil disimpan.`)
+      
     } catch (error) {
       console.error('Error voting:', error)
       if (error.code === '23505') {
-        // Unique constraint violation - user sudah vote
+        // Unique constraint violation
         alert('Anda sudah memberikan suara sebelumnya.')
         await checkIfVoted()
-        // Refresh untuk mendapatkan pilihan yang sudah ada
-        const { data: existingVote } = await supabase
-          .from('votes')
-          .select('candidate_name')
-          .eq('user_id', voter.id)
-          .maybeSingle()
-        
-        if (existingVote) {
-          setMyVote(existingVote.candidate_name)
-        }
       } else {
-        alert('Terjadi kesalahan saat memberikan suara. Silakan coba lagi.')
+        alert(`Terjadi kesalahan saat memberikan suara: ${error.message || 'Unknown error'}. Silakan coba lagi.`)
       }
     } finally {
       setIsVoting(false)

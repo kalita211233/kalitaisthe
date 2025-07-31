@@ -46,6 +46,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
       if (existingVoter) {
         // Jika voter sudah ada, gunakan data yang ada
         voterData = existingVoter
+        console.log('Existing voter found:', existingVoter)
       } else {
         // Jika voter belum ada, buat voter baru
         const { data, error } = await supabase
@@ -59,6 +60,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
 
         if (error) throw error
         voterData = data
+        console.log('New voter created:', data)
       }
 
       onLogin({
