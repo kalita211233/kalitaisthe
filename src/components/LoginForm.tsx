@@ -52,8 +52,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
           .from('voters')
           .insert([{ 
             name: name.trim(), 
-            address: address.trim(),
-            created_at: new Date().toISOString()
+            address: address.trim()
           }])
           .select()
           .single()

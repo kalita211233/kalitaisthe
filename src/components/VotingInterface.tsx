@@ -166,9 +166,36 @@ export function VotingInterface({ voter, onLogout }: VotingInterfaceProps) {
       if (voteError) throw voteError
 
       // Update voter record with their choice
-      // The trigger will automatically update voted_for in voters table
-      // Wait a moment for trigger to execute
-      await new Promise(resolve => setTimeout(resolve, 100))
+      // Wait for trigger to execute and verify the update
+      await new Promise(resolve => setTimeout(resolve, 200))
+      
+      // Verify that the trigger worked
+      const { data: updatedVoter, error: verifyError } = await supabase
+        .from('voters')
+        .select('voted_for')
+        .eq('id', voter.id)
+        .single()
+      
+      if (verifyError) {
+        console.error('Error verifying vote update:', verifyError)
+      }
+      
+      // If trigger didn't work, do manual update
+      if (!updatedVoter?.voted_for || updatedVoter.voted_for !== candidateName) {
+        console.log('Trigger did not update voted_for, doing manual update...')
+        const { error: manualUpdateError } = await supabase
+          .from('voters')
+          .update({ voted_for: candidateName })
+          .eq('id', voter.id)
+        
+        if (manualUpdateError) {
+          console.error('Manual update failed:', manualUpdateError)
+        } else {
+          console.log('Manual update successful')
+        }
+      } else {
+        console.log('Trigger update successful')
+      }
 
       setHasVoted(true)
       setSelectedCandidate(candidateName)
@@ -176,26 +203,6 @@ export function VotingInterface({ voter, onLogout }: VotingInterfaceProps) {
       
       // Refresh vote counts setelah voting berhasil
       await fetchVoteCounts()
-      
-      // Verify that voted_for was updated by checking the voter record
-      try {
-        const { data: updatedVoter } = await supabase
-          .from('voters')
-          .select('voted_for')
-          .eq('id', voter.id)
-          .single()
-        
-        if (updatedVoter?.voted_for !== candidateName) {
-          console.warn('voted_for not synced properly, attempting manual update')
-          // Manual fallback update if trigger didn't work
-          await supabase
-            .from('voters')
-            .update({ voted_for: candidateName })
-            .eq('id', voter.id)
-        }
-      } catch (verifyError) {
-        console.error('Error verifying voted_for sync:', verifyError)
-      }
     } catch (error) {
       console.error('Error voting:', error)
       if (error.code === '23505') {
